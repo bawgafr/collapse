@@ -8,37 +8,52 @@ import (
 )
 
 type CollapseGame struct {
-	fs            embed.FS
-	MountainImage *ebiten.Image
-	PlainsImage   *ebiten.Image
-	ForrestImage  *ebiten.Image
-	SwampImage    *ebiten.Image
-	BeachImage    *ebiten.Image
-	SeaImage      *ebiten.Image
+	fs       embed.FS
+	Mountain *WaveFunction
+	Plains   *WaveFunction
+	Forest   *WaveFunction
+	Swamp    *WaveFunction
+	Beach    *WaveFunction
+	Sea      *WaveFunction
 }
 
-var cardSize = 128
+const (
+	cardSize     = 128
+	resizeFactor = 0.25
+)
 
 func (g CollapseGame) Update() error {
 	return nil
 }
 
-func drawCard(x, y int, img *ebiten.Image, screen *ebiten.Image) {
+// draw a card to the grid
+//
+//	x : is the horizontal position in the grid that the image is to be displayed at
+//	y : is the vertical position in the grid that the image is to be display at
+//	w : is the card to be drawn at this position
+//	screen : is the image that its being adde to
+func drawCard(x, y int, w *WaveFunction, screen *ebiten.Image) {
 	drawOptions := &ebiten.DrawImageOptions{}
-	drawOptions.GeoM.Translate(float64(x), float64(y))
-	screen.DrawImage(img, drawOptions)
+	newSize := cardSize * resizeFactor
+	xPos := float64(x) * newSize
+	yPos := float64(y) * newSize
+
+	drawOptions.GeoM.Scale(resizeFactor, resizeFactor)
+
+	drawOptions.GeoM.Translate(float64(xPos), float64(yPos))
+	screen.DrawImage(w.Img, drawOptions)
 
 }
 
 func (g CollapseGame) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "Hello, world")
 
-	drawCard(0, 0, g.MountainImage, screen)
-	drawCard(cardSize, 0, g.PlainsImage, screen)
-	drawCard(cardSize*2, 0, g.ForrestImage, screen)
-	drawCard(0, cardSize, g.SwampImage, screen)
-	drawCard(cardSize, cardSize, g.BeachImage, screen)
-	drawCard(cardSize*2, cardSize, g.SeaImage, screen)
+	drawCard(0, 0, g.Mountain, screen)
+	drawCard(1, 0, g.Plains, screen)
+	drawCard(2, 0, g.Forest, screen)
+	drawCard(0, 1, g.Swamp, screen)
+	drawCard(1, 1, g.Beach, screen)
+	drawCard(2, 1, g.Sea, screen)
 
 }
 
@@ -57,27 +72,32 @@ func NewGame(fs embed.FS) (CollapseGame, error) {
 func (g *CollapseGame) init() error {
 	var err error
 
-	if g.MountainImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/mountain.png"); err != nil {
+	// set up the cards for the collapse. Alowes Neighbours are the ids of cards that are
+	// allowed to appear in the 4 cardinal positions around the card
+	g.Mountain = &WaveFunction{Id: 1, allowsNeighbours: []int{1, 2}}
+	g.Plains = &WaveFunction{Id: 2, allowsNeighbours: []int{2, 1, 3, 4, 5}}
+	g.Forest = &WaveFunction{Id: 3, allowsNeighbours: []int{2, 4, 5}}
+	g.Swamp = &WaveFunction{Id: 4, allowsNeighbours: []int{4, 2, 3}}
+	g.Beach = &WaveFunction{Id: 5, allowsNeighbours: []int{5, 2, 3, 6}}
+	g.Sea = &WaveFunction{Id: 6, allowsNeighbours: []int{6, 5}}
+
+	// load all of the images
+	if g.Mountain.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/mountain.png"); err != nil {
 		return err
 	}
-
-	if g.ForrestImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/forrest.png"); err != nil {
+	if g.Forest.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/forrest.png"); err != nil {
 		return err
 	}
-
-	if g.PlainsImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/plains.png"); err != nil {
+	if g.Plains.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/plains.png"); err != nil {
 		return err
 	}
-
-	if g.SwampImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/swamp.png"); err != nil {
+	if g.Swamp.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/swamp.png"); err != nil {
 		return err
 	}
-
-	if g.BeachImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/beach.png"); err != nil {
+	if g.Beach.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/beach.png"); err != nil {
 		return err
 	}
-
-	if g.SeaImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/sea.png"); err != nil {
+	if g.Sea.Img, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/sea.png"); err != nil {
 		return err
 	}
 
