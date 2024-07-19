@@ -17,35 +17,28 @@ type CollapseGame struct {
 	SeaImage      *ebiten.Image
 }
 
-var tiles []ebiten.Image
-
 var cardSize = 128
 
 func (g CollapseGame) Update() error {
 	return nil
 }
 
+func drawCard(x, y int, img *ebiten.Image, screen *ebiten.Image) {
+	drawOptions := &ebiten.DrawImageOptions{}
+	drawOptions.GeoM.Translate(float64(x), float64(y))
+	screen.DrawImage(img, drawOptions)
+
+}
+
 func (g CollapseGame) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "Hello, world")
 
-	drawOptions := &ebiten.DrawImageOptions{}
-	drawOptions.GeoM.Translate(0, 0)
-	screen.DrawImage(g.MountainImage, drawOptions)
-
-	drawOptions.GeoM.Translate(128, 0)
-	screen.DrawImage(g.PlainsImage, drawOptions)
-
-	drawOptions.GeoM.Translate(256, 0)
-	screen.DrawImage(g.SwampImage, drawOptions)
-
-	drawOptions.GeoM.Translate(384, 0)
-	screen.DrawImage(g.ForrestImage, drawOptions)
-
-	drawOptions.GeoM.Translate(0, 128)
-	screen.DrawImage(g.BeachImage, drawOptions)
-
-	drawOptions.GeoM.Translate(128, 128)
-	screen.DrawImage(g.SeaImage, drawOptions)
+	drawCard(0, 0, g.MountainImage, screen)
+	drawCard(cardSize, 0, g.PlainsImage, screen)
+	drawCard(cardSize*2, 0, g.ForrestImage, screen)
+	drawCard(0, cardSize, g.SwampImage, screen)
+	drawCard(cardSize, cardSize, g.BeachImage, screen)
+	drawCard(cardSize*2, cardSize, g.SeaImage, screen)
 
 }
 
@@ -62,49 +55,30 @@ func NewGame(fs embed.FS) (CollapseGame, error) {
 }
 
 func (g *CollapseGame) init() error {
+	var err error
 
-	image, _, err := ebitenutil.NewImageFromFileSystem(g.fs, "images/mountain.png")
-	if err != nil {
+	if g.MountainImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/mountain.png"); err != nil {
 		return err
 	}
-	g.MountainImage = image
 
-	image, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/forrest.png")
-	if err != nil {
+	if g.ForrestImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/forrest.png"); err != nil {
 		return err
 	}
-	g.ForrestImage = image
 
-	image, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/plains.png")
-	if err != nil {
+	if g.PlainsImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/plains.png"); err != nil {
 		return err
 	}
-	g.PlainsImage = image
 
-	image, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/swamp.png")
-	if err != nil {
+	if g.SwampImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/swamp.png"); err != nil {
 		return err
 	}
-	g.SwampImage = image
 
-	image, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/beach.png")
-	if err != nil {
+	if g.BeachImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/beach.png"); err != nil {
 		return err
 	}
-	g.BeachImage = image
 
-	image, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/sea.png")
-	if err != nil {
+	if g.SeaImage, _, err = ebitenutil.NewImageFromFileSystem(g.fs, "images/sea.png"); err != nil {
 		return err
-	}
-	g.SeaImage = image
-
-	tiles = []ebiten.Image{*g.BeachImage,
-		*g.ForrestImage,
-		*g.MountainImage,
-		*g.PlainsImage,
-		*g.SeaImage,
-		*g.SwampImage,
 	}
 
 	return nil
