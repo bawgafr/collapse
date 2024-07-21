@@ -10,16 +10,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const (
-	cardSize     = 128
-	resizeFactor = 0.5
-	gameSize     = 10
-)
+// const (
+// 	cardSize     = 128
+// 	resizeFactor = 0.5
+// 	gameSize     = 10
+// )
 
 type CollapseGame struct {
-	fs    embed.FS
-	cards map[int]WaveFunction
-	board [][]WaveFunction
+	fs           embed.FS
+	cardSize     int
+	resizeFactor float64
+	boardSize    int
+	cards        map[int]WaveFunction
+	board        [][]WaveFunction
 }
 
 func intersection(s1, s2 []int) []int {
@@ -60,28 +63,28 @@ func intersectionM(s1, s2 map[int]struct{}) map[int]struct{} {
 func (g CollapseGame) getEntropy(x, y int) []int {
 	// needs to be the intersection of the available....
 
-	entropy := g.cards[0].allowsNeighbours
+	entropy := g.cards[0].allowedNeighbours
 
 	if x > 0 {
 		cell := g.board[x-1][y]
-		entropy = intersection(entropy, cell.allowsNeighbours)
+		entropy = intersection(entropy, cell.allowedNeighbours)
 	}
 
-	if x < gameSize-1 {
+	if x < g.boardSize-1 {
 
 		cell := g.board[x+1][y]
-		entropy = intersection(entropy, cell.allowsNeighbours)
+		entropy = intersection(entropy, cell.allowedNeighbours)
 	}
 
 	if y > 0 {
 		cell := g.board[x][y-1]
-		entropy = intersection(entropy, cell.allowsNeighbours)
+		entropy = intersection(entropy, cell.allowedNeighbours)
 
 	}
 
-	if y < gameSize-1 {
+	if y < g.boardSize-1 {
 		cell := g.board[x][y+1]
-		entropy = intersection(entropy, cell.allowsNeighbours)
+		entropy = intersection(entropy, cell.allowedNeighbours)
 
 	}
 
@@ -120,12 +123,12 @@ func (g CollapseGame) unroll() []unrolledBoard {
 //	y : is the vertical position in the grid that the image is to be display at
 //	w : is the card to be drawn at this position
 //	screen : is the image that its being adde to
-func drawCard(x, y int, w WaveFunction, screen *ebiten.Image) {
+func drawCard(x, y, cardSize int, resizeFactor float64, w WaveFunction, screen *ebiten.Image) {
 	if w.Img == nil {
 		return
 	}
 	drawOptions := &ebiten.DrawImageOptions{}
-	newSize := cardSize * resizeFactor
+	newSize := float64(cardSize) * resizeFactor
 	xPos := float64(x) * newSize
 	yPos := float64(y) * newSize
 
@@ -139,6 +142,9 @@ func drawCard(x, y int, w WaveFunction, screen *ebiten.Image) {
 func NewGame(fs embed.FS) CollapseGame {
 	game := CollapseGame{}
 	game.fs = fs
+
+	// load the json from static/rules/rules.json
+
 	game.init()
 
 	return game
@@ -162,9 +168,9 @@ func (g *CollapseGame) init() {
 	g.addCard(5, "Beach", "static/images/beach.png", []int{5, 2, 3, 6})
 	g.addCard(6, "Sea", "static/images/sea.png", []int{6, 5})
 
-	a := make([][]WaveFunction, gameSize, gameSize)
+	a := make([][]WaveFunction, g.boardSize, g.boardSize)
 	for i := range a {
-		for j := 0; j < gameSize; j++ {
+		for j := 0; j < g.boardSize; j++ {
 			a[i] = append(a[i], g.cards[0])
 		}
 	}

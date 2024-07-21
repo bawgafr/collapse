@@ -20,16 +20,9 @@ func (g CollapseGame) Update() error {
 func (g CollapseGame) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "Hello, world")
 
-	// drawCard(0, 0, g.cards[1], screen)
-	// drawCard(1, 0, g.cards[2], screen)
-	// drawCard(2, 0, g.cards[3], screen)
-	// drawCard(0, 1, g.cards[4], screen)
-	// drawCard(1, 1, g.cards[5], screen)
-	// drawCard(2, 1, g.cards[6], screen)
-
-	for x := 0; x < gameSize; x++ {
-		for y := 0; y < gameSize; y++ {
-			drawCard(x, y, g.board[x][y], screen)
+	for x := 0; x < g.boardSize; x++ {
+		for y := 0; y < g.boardSize; y++ {
+			drawCard(x, y, g.cardSize, g.resizeFactor, g.board[x][y], screen)
 		}
 
 	}
