@@ -12,12 +12,8 @@ import (
 var embededStatic embed.FS
 
 func main() {
-	game, err := game.NewGame(embededStatic)
+	game := game.NewGame(embededStatic)
 
-
-	if err != nil {
-		log.Fatal("error initialising game :", err)
-	}
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowSize(640, 640)
 	ebiten.SetWindowTitle("Collapse")
