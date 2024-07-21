@@ -2,6 +2,8 @@ package game
 
 import (
 	"embed"
+	"log"
+	"slices"
 
 	"math/rand"
 
@@ -20,59 +22,70 @@ type CollapseGame struct {
 	board [][]WaveFunction
 }
 
-// type Cards struct {
-// 	Mountain *WaveFunction
-// 	Plains   *WaveFunction
-// 	Forest   *WaveFunction
-// 	Swamp    *WaveFunction
-// 	Beach    *WaveFunction
-// 	Sea      *WaveFunction
-// 	Blank    *WaveFunction
-// 	mapped   map[int]WaveFunction
-// }
+func intersection(s1, s2 []int) []int {
+	if len(s1) > len(s2) {
+		s1, s2 = s2, s1
+	}
 
-// func (c Cards) enMappen() {
+	intersection := []int{}
 
-// }
+	for _, v := range s1 {
+		if slices.Contains(s2, v) {
+			intersection = append(intersection, v)
+		}
+	}
+	return intersection
+}
 
-// work out which cards are allowed in position x,y by getting the allowedNeighbours of cards in the cardinal positions. If edge is found, nothing is added
+func intersectionM(s1, s2 map[int]struct{}) map[int]struct{} {
+	sIntersecting := make(map[int]struct{})
+
+	if len(s1) > len(s2) {
+		s1, s2 = s2, s1
+	}
+
+	for k, _ := range s1 {
+		_, intersecting := s2[k]
+		if intersecting {
+			sIntersecting[k] = struct{}{}
+		}
+	}
+
+	return sIntersecting
+}
+
+// work out which cards are allowed in position x,y by getting the allowedNeighbours of cards
+// in the cardinal positions and finding an intersection of the available neighbours.
+// If edge is found, intersection is not made
 func (g CollapseGame) getEntropy(x, y int) []int {
+	// needs to be the intersection of the available....
 
-	entropy := make(map[int]struct{})
+	entropy := g.cards[0].allowsNeighbours
 
 	if x > 0 {
-		for a := range g.board[x-1][y].allowsNeighbours {
-			entropy[a] = struct{}{}
-		}
+		cell := g.board[x-1][y]
+		entropy = intersection(entropy, cell.allowsNeighbours)
 	}
 
 	if x < gameSize-1 {
-		for a := range g.board[x+1][y].allowsNeighbours {
-			entropy[a] = struct{}{}
-		}
+
+		cell := g.board[x+1][y]
+		entropy = intersection(entropy, cell.allowsNeighbours)
 	}
 
 	if y > 0 {
-		for a := range g.board[x][y-1].allowsNeighbours {
-			entropy[a] = struct{}{}
-		}
+		cell := g.board[x][y-1]
+		entropy = intersection(entropy, cell.allowsNeighbours)
+
 	}
 
 	if y < gameSize-1 {
-		for a := range g.board[x][y+1].allowsNeighbours {
-			entropy[a] = struct{}{}
-		}
+		cell := g.board[x][y+1]
+		entropy = intersection(entropy, cell.allowsNeighbours)
 
 	}
 
-	e := make([]int, len(entropy))
-	i := 0
-	for k := range entropy {
-		e[i] = k
-		i++
-	}
-
-	return e
+	return entropy
 }
 
 // look at the board and find the places with the lowest entropy -- that is the fewest possible number of cards
@@ -80,12 +93,14 @@ func (g CollapseGame) unroll() []unrolledBoard {
 	var unrolled []unrolledBoard
 
 	smallestEntropy := 100000 // large number
+
 	for i, _ := range g.board {
 		for j, w := range g.board[i] {
 			if w.Id == 0 {
 				entropy := g.getEntropy(i, j)
 				l := len(entropy)
 				if l < smallestEntropy {
+					smallestEntropy = l
 					unrolled = []unrolledBoard{}
 					unrolled = append(unrolled, unrolledBoard{x: i, y: j, e: entropy})
 				}
@@ -136,50 +151,52 @@ func (g *CollapseGame) addCard(id int, name, filename string, allowedNeighbours 
 
 func (g *CollapseGame) init() {
 
-	a := make([][]WaveFunction, gameSize)
-	for i := range a {
-		a[i] = make([]WaveFunction, gameSize)
-	}
-	g.board = a
 	g.cards = make(map[int]WaveFunction)
 	// set up the cards for the collapse. Alowes Neighbours are the ids of cards that are
 	// allowed to appear in the 4 cardinal positions around the card
 	g.addCard(0, "blank", "", []int{1, 2, 3, 4, 5, 6})
-	g.addCard(1, "Mountain", "images/mountain.png", []int{1, 2})
-	g.addCard(2, "Plains", "images/forrest.png", []int{2, 1, 3, 4, 5})
-	g.addCard(3, "Forest", "images/plains.png", []int{2, 4, 5})
-	g.addCard(4, "Swamp", "images/swamp.png", []int{4, 2, 3})
-	g.addCard(5, "Beach", "images/beach.png", []int{5, 2, 3, 6})
-	g.addCard(6, "Sea", "images/sea.png", []int{6, 5})
+	g.addCard(1, "Mountain", "static/images/mountain.png", []int{1, 2})
+	g.addCard(2, "Plains", "static/images/plains.png", []int{2, 1, 3, 4, 5})
+	g.addCard(3, "Forest", "static/images/forrest.png", []int{2, 4, 5})
+	g.addCard(4, "Swamp", "static/images/swamp.png", []int{4, 2, 3})
+	g.addCard(5, "Beach", "static/images/beach.png", []int{5, 2, 3, 6})
+	g.addCard(6, "Sea", "static/images/sea.png", []int{6, 5})
 
-	g.board[0][0] = g.cards[0]
+	a := make([][]WaveFunction, gameSize, gameSize)
+	for i := range a {
+		for j := 0; j < gameSize; j++ {
+			a[i] = append(a[i], g.cards[0])
+		}
+	}
+	g.board = a
 
-	g.board[1][1] = g.cards[3]
-	g.board[9][9] = g.cards[1]
-
-	//	unrolled := g.unroll()
-
+	// seed a card in there already
+	g.board[1][0] = g.cards[3]
 	return
 }
 
-func (g *CollapseGame) evolveBoard() {
+func (g *CollapseGame) evolveBoard() bool {
 	// unrolled should contain the cells with the smallest entropy and only those cells
 	unrolled := g.unroll()
-
 	if len(unrolled) == 0 {
-		return
+		log.Println("unrolled == 0")
+		return false
 	}
 
 	//get a random cell
-	card := unrolled[rand.Intn(len(unrolled))]
+	c := rand.Intn(len(unrolled))
+	card := unrolled[c]
 
 	if len(card.e) == 0 {
-		return
+		log.Println("entropy == 0")
+		return false
 	}
 
 	// pick one of the possible neighbours
 	wf := card.e[rand.Intn(len(card.e))]
 
+	// set the randomly picked card with the randomly picked possible neighbour
 	g.board[card.x][card.y] = g.cards[wf]
 
+	return true
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-//go:embed images/*
+//go:embed static/images/* static/rules/*
 var embededStatic embed.FS
 
 func main() {

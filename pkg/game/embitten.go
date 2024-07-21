@@ -5,9 +5,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
+var building = true
+
 // enbitten function
 func (g CollapseGame) Update() error {
-	g.evolveBoard()
+	if building {
+		building = g.evolveBoard()
+	}
+
 	return nil
 }
 
