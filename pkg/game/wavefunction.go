@@ -16,17 +16,24 @@ type WaveFunction struct {
 }
 
 type GameRules struct {
-	imageSize    int
-	boardSize    int
-	resizeFactor float64
-	cards        cardRules
+	ImageSize    int
+	BoardSize    int
+	ResizeFactor float64
+	Cards        []cardRules
+	Seeds        []seedRules
+}
+
+type seedRules struct {
+	X    int
+	Y    int
+	Card int
 }
 
 type cardRules struct {
 	Id                int
 	Name              string
-	filename          string
-	allowedNeighbours []int
+	Filename          string
+	AllowedNeighbours []int
 }
 
 func NewWaveFunction(id int, name, filename string, allowsNeighbours []int, fs fs.FS) WaveFunction {

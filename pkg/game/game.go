@@ -1,7 +1,10 @@
 package game
 
 import (
+	"bufio"
 	"embed"
+	"encoding/json"
+	"io/fs"
 	"log"
 	"slices"
 
@@ -144,42 +147,90 @@ func NewGame(fs embed.FS) CollapseGame {
 	game.fs = fs
 
 	// load the json from static/rules/rules.json
+	rules, err := readRulesFromDisk("static/rules/rules.json", fs)
+	if err != nil {
+		log.Fatal("Unable to load Game Rules", err)
+	}
 
-	game.init()
+	log.Println("rules", rules)
+
+	game.cardSize = rules.ImageSize
+	game.resizeFactor = rules.ResizeFactor
+	game.boardSize = rules.BoardSize
+
+	game.cards = make(map[int]WaveFunction)
+
+	// create a blank card using all of the ids for allowed neighbours
+	blank := cardRules{Id: 0, Name: "blank", Filename: ""}
+	bAN := make([]int, len(rules.Cards))
+	for _, c := range rules.Cards {
+		bAN = append(bAN, c.Id)
+	}
+	blank.AllowedNeighbours = bAN
+	rules.Cards = append(rules.Cards, blank)
+	game.addCards(rules.Cards)
+
+	// initialise the board with the blank card
+	a := make([][]WaveFunction, game.boardSize, game.boardSize)
+	for i := range a {
+		for j := 0; j < game.boardSize; j++ {
+			a[i] = append(a[i], game.cards[0])
+		}
+	}
+	game.board = a
+
+	// seed a card in there already
+	for _, seed := range rules.Seeds {
+		game.board[seed.X][seed.Y] = game.cards[seed.Card]
+	}
 
 	return game
 }
 
-func (g *CollapseGame) addCard(id int, name, filename string, allowedNeighbours []int) {
+func (g *CollapseGame) addCards(card []cardRules) {
+	for _, c := range card {
+		// g.addCard2(c.Id, c.Name, c.filename, c.allowedNeighbours)
+		if c.Filename != "" {
+			c.Filename = "static/" + c.Filename
+		}
+		wf := NewWaveFunction(c.Id, c.Name, c.Filename, c.AllowedNeighbours, g.fs)
+		g.cards[c.Id] = wf
+	}
+
+}
+
+func (g *CollapseGame) addCard2(id int, name, filename string, allowedNeighbours []int) {
 	wf := NewWaveFunction(id, name, filename, allowedNeighbours, g.fs)
 	g.cards[id] = wf
 }
 
-func (g *CollapseGame) init() {
+// func (g *CollapseGame) init() {
 
-	g.cards = make(map[int]WaveFunction)
-	// set up the cards for the collapse. Alowes Neighbours are the ids of cards that are
-	// allowed to appear in the 4 cardinal positions around the card
-	g.addCard(0, "blank", "", []int{1, 2, 3, 4, 5, 6})
-	g.addCard(1, "Mountain", "static/images/mountain.png", []int{1, 2})
-	g.addCard(2, "Plains", "static/images/plains.png", []int{2, 1, 3, 4, 5})
-	g.addCard(3, "Forest", "static/images/forrest.png", []int{2, 4, 5})
-	g.addCard(4, "Swamp", "static/images/swamp.png", []int{4, 2, 3})
-	g.addCard(5, "Beach", "static/images/beach.png", []int{5, 2, 3, 6})
-	g.addCard(6, "Sea", "static/images/sea.png", []int{6, 5})
+// 	g.cards = make(map[int]WaveFunction)
+// 	// set up the cards for the collapse. Alowes Neighbours are the ids of cards that are
+// 	// allowed to appear in the 4 cardinal positions around the card
+// 	g.addCards()
 
-	a := make([][]WaveFunction, g.boardSize, g.boardSize)
-	for i := range a {
-		for j := 0; j < g.boardSize; j++ {
-			a[i] = append(a[i], g.cards[0])
-		}
-	}
-	g.board = a
+// 	// g.addCard(0, "blank", "", []int{1, 2, 3, 4, 5, 6})
+// 	// g.addCard(1, "Mountain", "static/images/mountain.png", []int{1, 2})
+// 	// g.addCard(2, "Plains", "static/images/plains.png", []int{2, 1, 3, 4, 5})
+// 	// g.addCard(3, "Forest", "static/images/forrest.png", []int{2, 4, 5})
+// 	// g.addCard(4, "Swamp", "static/images/swamp.png", []int{4, 2, 3})
+// 	// g.addCard(5, "Beach", "static/images/beach.png", []int{5, 2, 3, 6})
+// 	// g.addCard(6, "Sea", "static/images/sea.png", []int{6, 5})
 
-	// seed a card in there already
-	g.board[1][0] = g.cards[3]
-	return
-}
+// 	a := make([][]WaveFunction, g.boardSize, g.boardSize)
+// 	for i := range a {
+// 		for j := 0; j < g.boardSize; j++ {
+// 			a[i] = append(a[i], g.cards[0])
+// 		}
+// 	}
+// 	g.board = a
+
+// 	// seed a card in there already
+// 	g.board[1][0] = g.cards[3]
+// 	return
+// }
 
 func (g *CollapseGame) evolveBoard() bool {
 	// unrolled should contain the cells with the smallest entropy and only those cells
@@ -205,4 +256,33 @@ func (g *CollapseGame) evolveBoard() bool {
 	g.board[card.x][card.y] = g.cards[wf]
 
 	return true
+}
+
+func readRulesFromDisk(filename string, fs fs.FS) (GameRules, error) {
+	f, err := fs.Open(filename)
+	if err != nil {
+		return GameRules{}, err
+	}
+	defer f.Close()
+
+	var jsonString string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		jsonString += scanner.Text()
+	}
+
+	if err := scanner.Err(); err != nil {
+		return GameRules{}, err
+	}
+
+	rules := GameRules{}
+	log.Println("jsonString", jsonString)
+	err = json.Unmarshal([]byte(jsonString), &rules)
+	if err != nil {
+		return GameRules{}, err
+	}
+	log.Println("rules", rules)
+
+	return rules, nil
+
 }
