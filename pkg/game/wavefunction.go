@@ -21,6 +21,7 @@ type GameRules struct {
 	ResizeFactor float64
 	Cards        []cardRules
 	Seeds        []seedRules
+	RandSeed     int64
 }
 
 type seedRules struct {
