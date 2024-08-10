@@ -2,7 +2,6 @@ package game
 
 import (
 	"bufio"
-	"embed"
 	"encoding/json"
 	"io/fs"
 	"log"
@@ -20,12 +19,13 @@ import (
 // )
 
 type CollapseGame struct {
-	fs           embed.FS
+	fs           fs.FS
 	cardSize     int
 	resizeFactor float64
 	boardSize    int
 	cards        map[int]WaveFunction
 	board        [][]WaveFunction
+	Randomiser   int
 }
 
 func intersection(s1, s2 []int) []int {
@@ -41,23 +41,6 @@ func intersection(s1, s2 []int) []int {
 		}
 	}
 	return intersection
-}
-
-func intersectionM(s1, s2 map[int]struct{}) map[int]struct{} {
-	sIntersecting := make(map[int]struct{})
-
-	if len(s1) > len(s2) {
-		s1, s2 = s2, s1
-	}
-
-	for k, _ := range s1 {
-		_, intersecting := s2[k]
-		if intersecting {
-			sIntersecting[k] = struct{}{}
-		}
-	}
-
-	return sIntersecting
 }
 
 // work out which cards are allowed in position x,y by getting the allowedNeighbours of cards
@@ -100,7 +83,7 @@ func (g CollapseGame) unroll() []unrolledBoard {
 
 	smallestEntropy := 100000 // large number
 
-	for i, _ := range g.board {
+	for i := range g.board {
 		for j, w := range g.board[i] {
 			if w.Id == 0 {
 				entropy := g.getEntropy(i, j)
@@ -142,7 +125,7 @@ func drawCard(x, y, cardSize int, resizeFactor float64, w WaveFunction, screen *
 
 }
 
-func NewGame(fs embed.FS) CollapseGame {
+func NewGame(fs fs.FS) CollapseGame {
 	game := CollapseGame{}
 	game.fs = fs
 
@@ -157,6 +140,7 @@ func NewGame(fs embed.FS) CollapseGame {
 	game.cardSize = rules.ImageSize
 	game.resizeFactor = rules.ResizeFactor
 	game.boardSize = rules.BoardSize
+	game.Randomiser = rules.Randomiser
 
 	game.cards = make(map[int]WaveFunction)
 
@@ -171,7 +155,7 @@ func NewGame(fs embed.FS) CollapseGame {
 	game.addCards(rules.Cards)
 
 	// initialise the board with the blank card
-	a := make([][]WaveFunction, game.boardSize, game.boardSize)
+	a := make([][]WaveFunction, game.boardSize)
 	for i := range a {
 		for j := 0; j < game.boardSize; j++ {
 			a[i] = append(a[i], game.cards[0])
@@ -187,38 +171,47 @@ func NewGame(fs embed.FS) CollapseGame {
 	return game
 }
 
-func (g *CollapseGame) addCards(card []cardRules) {
-	for _, c := range card {
+func (g *CollapseGame) addCards(cardRules []cardRules) {
+	for _, c := range cardRules {
 		if c.Filename != "" {
 			c.Filename = "static/" + c.Filename
 		}
-		wf := NewWaveFunction(c.Id, c.Name, c.Filename, c.AllowedNeighbours, g.fs)
+		wf := NewWaveFunction(c, g.fs)
 		g.cards[c.Id] = wf
 	}
 }
 
 func (g *CollapseGame) evolveBoard() bool {
 	// unrolled should contain the cells with the smallest entropy and only those cells
+	// if the smallest amount of entropy is 0 we're either finished or backed into a corner.
+	// assume we've finished for now.
 	unrolled := g.unroll()
 	if len(unrolled) == 0 {
 		log.Println("unrolled == 0")
 		return false
 	}
 
-	//get a random cell
+	// select a location on the board to put the new card
+	// it will be a random selection from the unrolled set
+	// which contains all of the cells with the smallest entropy
 	c := rand.Intn(len(unrolled))
 	card := unrolled[c]
 
+	// if the entropy of the card is 0 then we have a similar case to earlier
+	// where it is either the end, or we've reached a point where a card cannot be placed
 	if len(card.e) == 0 {
 		log.Println("entropy == 0")
 		return false
 	}
 
-	// pick one of the possible neighbours
-	wf := card.e[rand.Intn(len(card.e))]
+	// using the list of available neighbours that the unrolledBoard object contains
+	// select one of the card types at random to place in the pre-selected location
+
+	// wf := card.e[rand.Intn(len(card.e))]
+	newCardsIndex := g.randomCard(card)
 
 	// set the randomly picked card with the randomly picked possible neighbour
-	g.board[card.x][card.y] = g.cards[wf]
+	g.board[card.x][card.y] = g.cards[newCardsIndex]
 
 	return true
 }
@@ -241,12 +234,10 @@ func readRulesFromDisk(filename string, fs fs.FS) (GameRules, error) {
 	}
 
 	rules := GameRules{}
-	log.Println("jsonString", jsonString)
 	err = json.Unmarshal([]byte(jsonString), &rules)
 	if err != nil {
 		return GameRules{}, err
 	}
-	log.Println("rules", rules)
 
 	return rules, nil
 

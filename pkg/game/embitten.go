@@ -2,7 +2,6 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 var building = true
@@ -18,7 +17,6 @@ func (g CollapseGame) Update() error {
 
 // embitten function
 func (g CollapseGame) Draw(screen *ebiten.Image) {
-	ebitenutil.DebugPrint(screen, "Hello, world")
 
 	for x := 0; x < g.boardSize; x++ {
 		for y := 0; y < g.boardSize; y++ {
